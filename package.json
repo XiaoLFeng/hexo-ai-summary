@@ -1,6 +1,6 @@
 {
   "name": "hexo-xlf-ai-summary",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hexo AI summary plugin",
   "main": "index.js",
   "exports": {
