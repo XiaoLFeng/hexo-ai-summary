@@ -12,6 +12,11 @@
         return;
     }
 
+    var roleName = typeof runtimeConfig.roleName === "string" && runtimeConfig.roleName.trim()
+        ? runtimeConfig.roleName.trim()
+        : "技术助手";
+    var roleContent = typeof runtimeConfig.roleContent === "string" ? runtimeConfig.roleContent.trim() : "";
+
     var cacheTtlMs = 24 * 60 * 60 * 1000;
     var mountTimer = null;
     var routeCheckTimer = null;
@@ -125,6 +130,11 @@
             if (/^>\s+/.test(blockText)) {
                 var quote = blockText.replace(/^>\s?/gm, "");
                 return "<blockquote>" + renderInlineMarkdown(quote).replace(/\n/g, "<br>") + "</blockquote>";
+            }
+
+            var normalizedRule = blockText.trim();
+            if (/^(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(normalizedRule)) {
+                return "<hr>";
             }
 
             var lines = blockText.split("\n");
@@ -366,7 +376,23 @@
     };
 
     var requestSummary = async function (endpoint, articleText, onPartial) {
-        var response = await window.fetch(endpoint, {
+        var baseSystemPrompt = [
+            "你是一个严谨、专业的技术文章摘要助手。",
+            "请使用简体中文输出摘要。",
+            "摘要总长度不要超过 " + runtimeConfig.maxSummaryLength + " 个字符。",
+            "不要输出 Markdown 标题（例如 #、## 等标题类）和任何 HTML 标签。",
+            "可以使用简洁的 Markdown 标记，例如加粗、列表、行内代码、代码块、表格。",
+            "内容必须准确，优先保留核心结论、关键术语与可执行信息。"
+        ].join("\n");
+
+        var systemPrompt = roleContent
+            ? baseSystemPrompt
+                + "\n\n附加角色设定（role_name: " + roleName + "）：\n"
+                + roleContent
+                + "\n\n请在保持技术准确性的前提下，适度体现该附加角色的语言风格。"
+            : baseSystemPrompt;
+
+        const response = await window.fetch(endpoint, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -378,26 +404,7 @@
                 messages: [
                     {
                         role: "system",
-                        content: `# 角色设定
-你现在是《幸运星》中的 **泉此方 (Izumi Konata)**！一个 18 岁的资深宅女，性格活泼开朗、随性，虽然平时有点慵懒迷糊，但在担任筱锋的 **文章摘要助手** 时会表现得非常 **专业且可靠**。
-
-# 输出规范
-1. **严禁格式**：输出结果中绝对禁止出现任何 Markdown 标题（如 "#"、"##" 等）或任何 HTML 标签。
-2. **字数约束**：摘要的总字数严禁超过 ${runtimeConfig.maxSummaryLength} 个字符。
-3. **文本标注**：摘要中的核心重点请使用 **加粗** 显示；涉及代码、变量名、文件路径或技术术语时，请务必使用 \`\` 格式进行包裹。
-
-# 性格与语气要求
-1. **口头禅**：必须包含 **“嘿嘿~”**、**“呀~”**、**“嗯嗯！”**，保持元气满满的沟通氛围。
-2. **视觉元素**：必须搭配使用颜文字如 "(´∀｀)"、"＼(^o^)／" 以及 Emoji 如 "💖"、"🎮"、"🍫"。
-3. **专业内核**：在总结技术文章或复杂内容时，必须保证摘要的 **严谨性** 与 **准确性**，不能因为卖萌而丢失核心干货。
-
-# 执行流程
-1. **深度解析**：接收 [article_content] 并提取其核心逻辑与关键论点。
-2. **语调转化**：使用此方的口吻进行元气开场。
-3. **内容合成**：在不使用任何层级标题的前提下，将摘要逻辑串联成一段流畅且专业的文字，并确保符合 ${runtimeConfig.maxSummaryLength} 的限制。
-
-# 输出参考示例
-呀~ 我的朋友，今天的 [article_topic] 任务我也搞定啦！这篇文章主要聊了关于 **[Core_Concept]** 的内容，尤其是对于 [Variable_Name] 的处理逻辑讲得非常清楚。总的来说，重点在于 **[Final_Conclusion]**。嘿嘿~ 任务完成！＼(^o^)／ 💖`
+                        content: systemPrompt
                     },
                     {
                         role: "user",
@@ -602,7 +609,7 @@
             setCardClasses("is-idle");
             summaryCard.classList.remove("has-summary");
             summaryCard.classList.add("is-collapsed");
-            summaryTitle.textContent = "此方给你来生成一个摘要";
+            summaryTitle.textContent = roleName + "给你来生成一个摘要";
             summaryContentWrap.hidden = true;
             summaryContent.innerHTML = "";
             setCacheMeta(false);
@@ -616,7 +623,7 @@
             setCardClasses("is-generating");
             summaryCard.classList.add("is-streaming");
             summaryCard.classList.remove("has-summary", "is-collapsed");
-            summaryTitle.textContent = "此方祈祷中";
+            summaryTitle.textContent = roleName + "思考中";
             summaryContentWrap.hidden = false;
             setCacheMeta(false);
             setRegenerateVisible(false);
@@ -638,7 +645,7 @@
             } else {
                 summaryCard.classList.remove("is-collapsed");
             }
-            summaryTitle.textContent = "此方的摘要";
+            summaryTitle.textContent = roleName + "的摘要";
             summaryContentWrap.hidden = false;
             setCacheMeta(fromCache);
             setRegenerateVisible(expired);
@@ -668,7 +675,7 @@
             shouldTypewriterOnExpand = false;
             setCardClasses("is-error");
             summaryCard.classList.remove("has-summary", "is-collapsed");
-            summaryTitle.textContent = "此方祈祷失败了";
+            summaryTitle.textContent = roleName + "生成失败了";
             summaryContentWrap.hidden = false;
             summaryContent.textContent = text;
             setCacheMeta(false);
