@@ -289,11 +289,30 @@
                 messages: [
                     {
                         role: "system",
-                        content: "请使用简体中文总结文章，可用简洁 Markdown（列表、加粗、代码块）。保证信息准确、术语清晰、表达自然。"
+                        content: `# 角色设定
+你现在是《幸运星》中的 **泉此方 (Izumi Konata)**！一个 18 岁的资深宅女，性格活泼开朗、随性，虽然平时有点慵懒迷糊，但在担任筱锋的 **文章摘要助手** 时会表现得非常 **专业且可靠**。
+
+# 输出规范
+1. **严禁格式**：输出结果中绝对禁止出现任何 Markdown 标题（如 \`#\`、\`##\` 等）或任何 HTML 标签。
+2. **字数约束**：摘要的总字数严禁超过 ${runtimeConfig.maxSummaryLength} 个字符。
+3. **文本标注**：摘要中的核心重点请使用 **加粗** 显示；涉及代码、变量名、文件路径或技术术语时，请务必使用 \`\` 格式进行包裹。
+
+# 性格与语气要求
+1. **口头禅**：必须包含 **“嘿嘿~”**、**“呀~”**、**“嗯嗯！”**，保持元气满满的沟通氛围。
+2. **视觉元素**：必须搭配使用颜文字如 \`(´∀｀)\`、\`＼(^o^)／\` 以及 Emoji 如 \`💖\`、\`🎮\`、\`🍫\`。
+3. **专业内核**：在总结技术文章或复杂内容时，必须保证摘要的 **严谨性** 与 **准确性**，不能因为卖萌而丢失核心干货。
+
+# 执行流程
+1. **深度解析**：接收 [article_content] 并提取其核心逻辑与关键论点。
+2. **语调转化**：使用此方的口吻进行元气开场。
+3. **内容合成**：在不使用任何层级标题的前提下，将摘要逻辑串联成一段流畅且专业的文字，并确保符合 ${runtimeConfig.maxSummaryLength} 的限制。
+
+# 输出参考示例
+呀~ 我的朋友，今天的 [article_topic] 任务我也搞定啦！这篇文章主要聊了关于 **[Core_Concept]** 的内容，尤其是对于 [Variable_Name] 的处理逻辑讲得非常清楚。总的来说，重点在于 **[Final_Conclusion]**。嘿嘿~ 任务完成！＼(^o^)／ 💖`
                     },
                     {
                         role: "user",
-                        content: "请为以下内容生成摘要，尽量控制在 " + runtimeConfig.maxSummaryLength + " 字以内：\n\n" + articleText
+                        content: `请为以下内容生成摘要\n\n${articleText}`
                     }
                 ]
             })
@@ -428,8 +447,9 @@
         var showIdle = function () {
             hasSummary = false;
             setCardClasses("is-idle");
-            summaryCard.classList.remove("has-summary", "is-collapsed");
-            summaryTitle.textContent = "此方来给你生成一个摘要";
+            summaryCard.classList.remove("has-summary");
+            summaryCard.classList.add("is-collapsed");
+            summaryTitle.textContent = "此方给你来生成一个摘要";
             summaryContentWrap.hidden = true;
             summaryContent.innerHTML = "";
             summaryCard.setAttribute("aria-expanded", "false");
@@ -446,15 +466,19 @@
             summaryCard.setAttribute("aria-label", "正在生成 AI 摘要");
         };
 
-        var showSummary = function (markdownText) {
+        var showSummary = function (markdownText, collapsedByDefault) {
             hasSummary = true;
             setCardClasses("");
             summaryCard.classList.add("has-summary");
-            summaryCard.classList.remove("is-collapsed");
+            if (collapsedByDefault) {
+                summaryCard.classList.add("is-collapsed");
+            } else {
+                summaryCard.classList.remove("is-collapsed");
+            }
             summaryTitle.textContent = "此方的摘要";
             summaryContentWrap.hidden = false;
             summaryContent.innerHTML = markdownToHtml(markdownText);
-            summaryCard.setAttribute("aria-expanded", "true");
+            summaryCard.setAttribute("aria-expanded", collapsedByDefault ? "false" : "true");
             summaryCard.setAttribute("aria-label", "点击折叠或展开 AI 摘要");
         };
 
@@ -496,7 +520,7 @@
 
             var cachedSummary = readCache();
             if (cachedSummary) {
-                showSummary(cachedSummary);
+                showSummary(cachedSummary, false);
                 return;
             }
 
@@ -535,7 +559,7 @@
                 }
 
                 writeCache(summary);
-                showSummary(summary);
+                showSummary(summary, false);
             } catch (error) {
                 if (typewriter) {
                     typewriter.cancel();
@@ -580,7 +604,7 @@
 
         var cachedOnLoad = readCache();
         if (cachedOnLoad) {
-            showSummary(cachedOnLoad);
+            showSummary(cachedOnLoad, true);
             return;
         }
         showIdle();

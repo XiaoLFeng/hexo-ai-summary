@@ -8,6 +8,11 @@
     --ai-summary-accent: #121417;
     --ai-summary-accent-soft: rgba(18, 20, 23, 0.16);
     --ai-summary-content-bg: rgba(17, 24, 39, 0.03);
+    --ai-summary-code-bg: #eef3f9;
+    --ai-summary-code-text: #0f172a;
+    --ai-summary-code-border: #c8d2df;
+    --ai-summary-pre-bg: #e8eef8;
+    --ai-summary-pre-text: #0f172a;
     --ai-summary-error-bg: #fff1f2;
     --ai-summary-error-border: #fecdd3;
     --ai-summary-error-text: #be123c;
@@ -29,6 +34,11 @@ body[data-theme="dark"] {
     --ai-summary-accent: #f8fafc;
     --ai-summary-accent-soft: rgba(248, 250, 252, 0.2);
     --ai-summary-content-bg: rgba(248, 250, 252, 0.06);
+    --ai-summary-code-bg: #2a3140;
+    --ai-summary-code-text: #f3f8ff;
+    --ai-summary-code-border: #445068;
+    --ai-summary-pre-bg: #232a36;
+    --ai-summary-pre-text: #f3f8ff;
     --ai-summary-error-bg: rgba(190, 24, 93, 0.18);
     --ai-summary-error-border: rgba(244, 114, 182, 0.4);
     --ai-summary-error-text: #fda4af;
@@ -45,6 +55,11 @@ body[data-theme="dark"] {
         --ai-summary-accent: #f8fafc;
         --ai-summary-accent-soft: rgba(248, 250, 252, 0.2);
         --ai-summary-content-bg: rgba(248, 250, 252, 0.06);
+        --ai-summary-code-bg: #2a3140;
+        --ai-summary-code-text: #f3f8ff;
+        --ai-summary-code-border: #445068;
+        --ai-summary-pre-bg: #232a36;
+        --ai-summary-pre-text: #f3f8ff;
         --ai-summary-error-bg: rgba(190, 24, 93, 0.18);
         --ai-summary-error-border: rgba(244, 114, 182, 0.4);
         --ai-summary-error-text: #fda4af;
@@ -222,20 +237,26 @@ body[data-theme="dark"] {
     font-size: 0.92em;
     padding: 1px 4px;
     border-radius: 4px;
-    background: var(--ai-summary-content-bg);
+    color: var(--ai-summary-code-text);
+    background: var(--ai-summary-code-bg);
+    border: 1px solid var(--ai-summary-code-border);
 }
 
 .ai-summary-card__content pre {
     overflow-x: auto;
     padding: 10px 12px;
     border-radius: 8px;
-    background: var(--ai-summary-content-bg);
+    color: var(--ai-summary-pre-text);
+    background: var(--ai-summary-pre-bg);
+    border: 1px solid var(--ai-summary-code-border);
 }
 
 .ai-summary-card__content pre code {
     display: block;
     padding: 0;
+    color: inherit;
     background: transparent;
+    border: 0;
 }
 
 .ai-summary-card__content a {
