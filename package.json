@@ -1,0 +1,37 @@
+{
+  "name": "hexo-xlf-ai-summary",
+  "version": "1.0.0",
+  "description": "Hexo AI summary plugin",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "ai-summary.js",
+    "ai-summary.css",
+    "ai-summary.html"
+  ],
+  "keywords": [
+    "AI",
+    "Summary",
+    "hexo",
+    "hexo-plugin",
+    "XiaoLFeng"
+  ],
+  "homepage": "https://github.com/XiaoLFeng/hexo-ai-summary#readme",
+  "bugs": {
+    "url": "https://github.com/XiaoLFeng/hexo-ai-summary/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XiaoLFeng/hexo-ai-summary.git"
+  },
+  "license": "MIT",
+  "author": "筱锋xiao_lfeng",
+  "scripts": {},
+  "dependencies": {
+    "hexo": "^8.1.1",
+    "openai": "^6.22.0"
+  }
+}
