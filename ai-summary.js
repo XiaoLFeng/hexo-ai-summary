@@ -137,11 +137,12 @@
             if (!parsed || typeof parsed.summary !== "string" || typeof parsed.createdAt !== "number") {
                 return null;
             }
-            if (Date.now() - parsed.createdAt > cacheTtlMs) {
-                window.localStorage.removeItem(getCacheKey());
-                return null;
-            }
-            return parsed.summary;
+            var expired = Date.now() - parsed.createdAt > cacheTtlMs;
+            return {
+                summary: parsed.summary,
+                createdAt: parsed.createdAt,
+                expired: expired
+            };
         } catch (_) {
             return null;
         }
@@ -293,13 +294,13 @@
 你现在是《幸运星》中的 **泉此方 (Izumi Konata)**！一个 18 岁的资深宅女，性格活泼开朗、随性，虽然平时有点慵懒迷糊，但在担任筱锋的 **文章摘要助手** 时会表现得非常 **专业且可靠**。
 
 # 输出规范
-1. **严禁格式**：输出结果中绝对禁止出现任何 Markdown 标题（如 \`#\`、\`##\` 等）或任何 HTML 标签。
+1. **严禁格式**：输出结果中绝对禁止出现任何 Markdown 标题（如 "#"、"##" 等）或任何 HTML 标签。
 2. **字数约束**：摘要的总字数严禁超过 ${runtimeConfig.maxSummaryLength} 个字符。
 3. **文本标注**：摘要中的核心重点请使用 **加粗** 显示；涉及代码、变量名、文件路径或技术术语时，请务必使用 \`\` 格式进行包裹。
 
 # 性格与语气要求
 1. **口头禅**：必须包含 **“嘿嘿~”**、**“呀~”**、**“嗯嗯！”**，保持元气满满的沟通氛围。
-2. **视觉元素**：必须搭配使用颜文字如 \`(´∀｀)\`、\`＼(^o^)／\` 以及 Emoji 如 \`💖\`、\`🎮\`、\`🍫\`。
+2. **视觉元素**：必须搭配使用颜文字如 "(´∀｀)"、"＼(^o^)／" 以及 Emoji 如 "💖"、"🎮"、"🍫"。
 3. **专业内核**：在总结技术文章或复杂内容时，必须保证摘要的 **严谨性** 与 **准确性**，不能因为卖萌而丢失核心干货。
 
 # 执行流程
@@ -426,7 +427,15 @@
         return fallbackSummary;
     };
 
-    var bindSummaryInteraction = function (summaryCard, summaryTitle, summaryContentWrap, summaryContent, summaryCursor) {
+    var bindSummaryInteraction = function (
+        summaryCard,
+        summaryTitle,
+        summaryContentWrap,
+        summaryMeta,
+        summaryContent,
+        summaryCursor,
+        regenerateButton
+    ) {
         if (summaryCard.dataset.aiSummaryBound === "1") {
             return;
         }
@@ -436,6 +445,51 @@
         var running = false;
         var hasSummary = false;
         var typewriter = null;
+        var pendingTypewriterText = "";
+        var shouldTypewriterOnExpand = false;
+
+        var setCacheMeta = function (showCacheMeta) {
+            if (!summaryMeta) {
+                return;
+            }
+            if (!showCacheMeta) {
+                summaryMeta.hidden = true;
+                summaryMeta.textContent = "";
+                return;
+            }
+            summaryMeta.hidden = false;
+            summaryMeta.textContent = "【数据来源：缓存】";
+        };
+
+        var setRegenerateVisible = function (visible) {
+            summaryCard.classList.remove("show-regenerate");
+            if (visible) {
+                summaryCard.classList.add("show-regenerate");
+            }
+        };
+
+        var renderWithTypewriter = function (markdownText) {
+            if (typewriter) {
+                typewriter.cancel();
+                typewriter = null;
+            }
+
+            typewriter = createTypewriter(
+                function (partialText) {
+                    summaryContent.innerHTML = markdownToHtml(partialText);
+                },
+                function (typingActive) {
+                    if (typingActive) {
+                        summaryCard.classList.add("is-typing");
+                        return;
+                    }
+                    summaryCard.classList.remove("is-typing");
+                }
+            );
+
+            typewriter.push(markdownText);
+            return typewriter.complete(markdownText);
+        };
 
         var setCardClasses = function (state) {
             summaryCard.classList.remove("is-idle", "is-generating", "is-streaming", "is-typing", "is-error");
@@ -446,27 +500,41 @@
 
         var showIdle = function () {
             hasSummary = false;
+            pendingTypewriterText = "";
+            shouldTypewriterOnExpand = false;
             setCardClasses("is-idle");
             summaryCard.classList.remove("has-summary");
             summaryCard.classList.add("is-collapsed");
             summaryTitle.textContent = "此方给你来生成一个摘要";
             summaryContentWrap.hidden = true;
             summaryContent.innerHTML = "";
+            setCacheMeta(false);
+            setRegenerateVisible(false);
             summaryCard.setAttribute("aria-expanded", "false");
             summaryCard.setAttribute("aria-label", "点击生成 AI 摘要");
         };
 
         var showGenerating = function () {
+            pendingTypewriterText = "";
+            shouldTypewriterOnExpand = false;
             setCardClasses("is-generating");
             summaryCard.classList.add("is-streaming");
             summaryCard.classList.remove("has-summary", "is-collapsed");
             summaryTitle.textContent = "此方祈祷中";
             summaryContentWrap.hidden = false;
+            setCacheMeta(false);
+            setRegenerateVisible(false);
             summaryCard.setAttribute("aria-expanded", "true");
             summaryCard.setAttribute("aria-label", "正在生成 AI 摘要");
         };
 
-        var showSummary = function (markdownText, collapsedByDefault) {
+        var showSummary = function (markdownText, options) {
+            var view = options || {};
+            var collapsedByDefault = Boolean(view.collapsedByDefault);
+            var fromCache = Boolean(view.fromCache);
+            var expired = Boolean(view.expired);
+            var useTypewriter = Boolean(view.useTypewriter);
+
             hasSummary = true;
             setCardClasses("");
             summaryCard.classList.add("has-summary");
@@ -477,30 +545,59 @@
             }
             summaryTitle.textContent = "此方的摘要";
             summaryContentWrap.hidden = false;
-            summaryContent.innerHTML = markdownToHtml(markdownText);
+            setCacheMeta(fromCache);
+            setRegenerateVisible(expired);
             summaryCard.setAttribute("aria-expanded", collapsedByDefault ? "false" : "true");
             summaryCard.setAttribute("aria-label", "点击折叠或展开 AI 摘要");
+
+            pendingTypewriterText = "";
+            shouldTypewriterOnExpand = false;
+
+            if (useTypewriter && collapsedByDefault) {
+                summaryContent.innerHTML = "";
+                pendingTypewriterText = markdownText;
+                shouldTypewriterOnExpand = true;
+                return Promise.resolve();
+            }
+
+            if (useTypewriter) {
+                return renderWithTypewriter(markdownText);
+            }
+
+            summaryContent.innerHTML = markdownToHtml(markdownText);
+            return Promise.resolve();
         };
 
         var showError = function (text) {
             hasSummary = false;
+            pendingTypewriterText = "";
+            shouldTypewriterOnExpand = false;
             setCardClasses("is-error");
             summaryCard.classList.remove("has-summary", "is-collapsed");
             summaryTitle.textContent = "此方祈祷失败了";
             summaryContentWrap.hidden = false;
             summaryContent.textContent = text;
+            setCacheMeta(false);
+            setRegenerateVisible(false);
             summaryCard.setAttribute("aria-expanded", "true");
             summaryCard.setAttribute("aria-label", "点击重试生成 AI 摘要");
         };
 
         var toggleCollapse = function () {
-            if (!hasSummary || running) {
+            if (!hasSummary || running || summaryCard.classList.contains("is-typing")) {
                 return;
             }
 
             if (summaryCard.classList.contains("is-collapsed")) {
                 summaryCard.classList.remove("is-collapsed");
                 summaryCard.setAttribute("aria-expanded", "true");
+
+                if (shouldTypewriterOnExpand && pendingTypewriterText) {
+                    var textToRender = pendingTypewriterText;
+                    pendingTypewriterText = "";
+                    shouldTypewriterOnExpand = false;
+                    renderWithTypewriter(textToRender);
+                }
                 return;
             }
 
@@ -508,7 +605,7 @@
             summaryCard.setAttribute("aria-expanded", "false");
         };
 
-        var startGeneration = async function () {
+        var startGeneration = async function (forceRefresh) {
             if (running) {
                 return;
             }
@@ -518,9 +615,14 @@
                 return;
             }
 
-            var cachedSummary = readCache();
-            if (cachedSummary) {
-                showSummary(cachedSummary, false);
+            var cachedPayload = readCache();
+            if (cachedPayload && !forceRefresh && !cachedPayload.expired) {
+                await showSummary(cachedPayload.summary, {
+                    collapsedByDefault: false,
+                    fromCache: true,
+                    expired: false,
+                    useTypewriter: true
+                });
                 return;
             }
 
@@ -559,7 +661,12 @@
                 }
 
                 writeCache(summary);
-                showSummary(summary, false);
+                await showSummary(summary, {
+                    collapsedByDefault: false,
+                    fromCache: false,
+                    expired: false,
+                    useTypewriter: false
+                });
             } catch (error) {
                 if (typewriter) {
                     typewriter.cancel();
@@ -575,8 +682,19 @@
             }
         };
 
+        if (regenerateButton) {
+            regenerateButton.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!summaryCard.classList.contains("show-regenerate")) {
+                    return;
+                }
+                startGeneration(true);
+            });
+        }
+
         summaryCard.addEventListener("click", function (event) {
-            if (event.target && event.target.closest("a")) {
+            if (event.target && (event.target.closest("a") || event.target.closest("button"))) {
                 return;
             }
 
@@ -585,10 +703,13 @@
                 return;
             }
 
-            startGeneration();
+            startGeneration(false);
         });
 
         summaryCard.addEventListener("keydown", function (event) {
+            if (event.target && event.target.closest("button")) {
+                return;
+            }
             if (event.key !== "Enter" && event.key !== " ") {
                 return;
             }
@@ -599,12 +720,17 @@
                 return;
             }
 
-            startGeneration();
+            startGeneration(false);
         });
 
         var cachedOnLoad = readCache();
         if (cachedOnLoad) {
-            showSummary(cachedOnLoad, true);
+            showSummary(cachedOnLoad.summary, {
+                collapsedByDefault: true,
+                fromCache: true,
+                expired: cachedOnLoad.expired,
+                useTypewriter: true
+            });
             return;
         }
         showIdle();
@@ -636,14 +762,24 @@
         var summaryCard = document.getElementById("ai-summary-card");
         var summaryTitle = document.getElementById("ai-summary-card-title");
         var summaryContentWrap = document.getElementById("ai-summary-card-content-wrap");
+        var summaryMeta = document.getElementById("ai-summary-card-meta");
         var summaryContent = document.getElementById("ai-summary-card-content");
         var summaryCursor = document.getElementById("ai-summary-card-cursor");
+        var regenerateButton = document.getElementById("ai-summary-card-regenerate");
 
-        if (!summaryCard || !summaryTitle || !summaryContentWrap || !summaryContent || !summaryCursor) {
+        if (!summaryCard || !summaryTitle || !summaryContentWrap || !summaryMeta || !summaryContent || !summaryCursor || !regenerateButton) {
             return;
         }
 
-        bindSummaryInteraction(summaryCard, summaryTitle, summaryContentWrap, summaryContent, summaryCursor);
+        bindSummaryInteraction(
+            summaryCard,
+            summaryTitle,
+            summaryContentWrap,
+            summaryMeta,
+            summaryContent,
+            summaryCursor,
+            regenerateButton
+        );
     };
 
     var scheduleMount = function () {
