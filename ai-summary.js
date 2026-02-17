@@ -39,12 +39,29 @@
 
     var renderInlineMarkdown = function (escapedText) {
         var output = String(escapedText || "");
-        output = output.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (_, label, link) {
+        var inlineCodes = [];
+
+        output = output.replace(/`([^`\n]+)`/g, function (_, codeText) {
+            var token = "%%AI_SUMMARY_INLINE_CODE_" + inlineCodes.length + "%%";
+            inlineCodes.push(codeText);
+            return token;
+        });
+
+        output = output.replace(/!\[([^\]]*)\]\(((?:https?:\/\/|\/|\.\/|\.\.\/)[^\s)]+)\)/g, function (_, alt, imageUrl) {
+            return "<a class=\"ai-summary-card__image-link\" href=\"" + imageUrl + "\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\""
+                + imageUrl + "\" alt=\"" + alt + "\" loading=\"lazy\" decoding=\"async\"></a>";
+        });
+
+        output = output.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/|\.\/|\.\.\/)[^\s)]+)\)/g, function (_, label, link) {
             return "<a href=\"" + link + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + label + "</a>";
         });
-        output = output.replace(/`([^`\n]+)`/g, "<code>$1</code>");
         output = output.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
         output = output.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+
+        output = output.replace(/%%AI_SUMMARY_INLINE_CODE_(\d+)%%/g, function (_, index) {
+            return "<code>" + (inlineCodes[Number(index)] || "") + "</code>";
+        });
+
         return output;
     };
 
@@ -500,6 +517,7 @@
 
     var bindSummaryInteraction = function (
         summaryCard,
+        summaryHeader,
         summaryTitle,
         summaryContentWrap,
         summaryMeta,
@@ -518,6 +536,14 @@
         var typewriter = null;
         var pendingTypewriterText = "";
         var shouldTypewriterOnExpand = false;
+
+        var setHeaderState = function (expanded, label) {
+            if (!summaryHeader) {
+                return;
+            }
+            summaryHeader.setAttribute("aria-expanded", expanded ? "true" : "false");
+            summaryHeader.setAttribute("aria-label", label);
+        };
 
         var setCacheMeta = function (showCacheMeta) {
             if (!summaryMeta) {
@@ -581,8 +607,7 @@
             summaryContent.innerHTML = "";
             setCacheMeta(false);
             setRegenerateVisible(false);
-            summaryCard.setAttribute("aria-expanded", "false");
-            summaryCard.setAttribute("aria-label", "点击生成 AI 摘要");
+            setHeaderState(false, "点击生成 AI 摘要");
         };
 
         var showGenerating = function () {
@@ -595,8 +620,7 @@
             summaryContentWrap.hidden = false;
             setCacheMeta(false);
             setRegenerateVisible(false);
-            summaryCard.setAttribute("aria-expanded", "true");
-            summaryCard.setAttribute("aria-label", "正在生成 AI 摘要");
+            setHeaderState(true, "正在生成 AI 摘要");
         };
 
         var showSummary = function (markdownText, options) {
@@ -618,8 +642,7 @@
             summaryContentWrap.hidden = false;
             setCacheMeta(fromCache);
             setRegenerateVisible(expired);
-            summaryCard.setAttribute("aria-expanded", collapsedByDefault ? "false" : "true");
-            summaryCard.setAttribute("aria-label", "点击折叠或展开 AI 摘要");
+            setHeaderState(!collapsedByDefault, "点击折叠或展开 AI 摘要");
 
             pendingTypewriterText = "";
             shouldTypewriterOnExpand = false;
@@ -650,8 +673,7 @@
             summaryContent.textContent = text;
             setCacheMeta(false);
             setRegenerateVisible(false);
-            summaryCard.setAttribute("aria-expanded", "true");
-            summaryCard.setAttribute("aria-label", "点击重试生成 AI 摘要");
+            setHeaderState(true, "点击重试生成 AI 摘要");
         };
 
         var toggleCollapse = function () {
@@ -661,7 +683,7 @@
 
             if (summaryCard.classList.contains("is-collapsed")) {
                 summaryCard.classList.remove("is-collapsed");
-                summaryCard.setAttribute("aria-expanded", "true");
+                setHeaderState(true, "点击折叠或展开 AI 摘要");
 
                 if (shouldTypewriterOnExpand && pendingTypewriterText) {
                     var textToRender = pendingTypewriterText;
@@ -673,7 +695,7 @@
             }
 
             summaryCard.classList.add("is-collapsed");
-            summaryCard.setAttribute("aria-expanded", "false");
+            setHeaderState(false, "点击折叠或展开 AI 摘要");
         };
 
         var startGeneration = async function (forceRefresh) {
@@ -764,7 +786,7 @@
             });
         }
 
-        summaryCard.addEventListener("click", function (event) {
+        summaryHeader.addEventListener("click", function (event) {
             if (event.target && (event.target.closest("a") || event.target.closest("button"))) {
                 return;
             }
@@ -777,7 +799,7 @@
             startGeneration(false);
         });
 
-        summaryCard.addEventListener("keydown", function (event) {
+        summaryHeader.addEventListener("keydown", function (event) {
             if (event.target && event.target.closest("button")) {
                 return;
             }
@@ -831,6 +853,7 @@
         }
 
         var summaryCard = document.getElementById("ai-summary-card");
+        var summaryHeader = document.getElementById("ai-summary-card-header");
         var summaryTitle = document.getElementById("ai-summary-card-title");
         var summaryContentWrap = document.getElementById("ai-summary-card-content-wrap");
         var summaryMeta = document.getElementById("ai-summary-card-meta");
@@ -838,12 +861,13 @@
         var summaryCursor = document.getElementById("ai-summary-card-cursor");
         var regenerateButton = document.getElementById("ai-summary-card-regenerate");
 
-        if (!summaryCard || !summaryTitle || !summaryContentWrap || !summaryMeta || !summaryContent || !summaryCursor || !regenerateButton) {
+        if (!summaryCard || !summaryHeader || !summaryTitle || !summaryContentWrap || !summaryMeta || !summaryContent || !summaryCursor || !regenerateButton) {
             return;
         }
 
         bindSummaryInteraction(
             summaryCard,
+            summaryHeader,
             summaryTitle,
             summaryContentWrap,
             summaryMeta,
