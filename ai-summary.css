@@ -324,6 +324,42 @@ body[data-theme="dark"] {
     border-left: 3px solid var(--ai-summary-accent-soft);
 }
 
+.ai-summary-card__content table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--ai-summary-code-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ai-summary-card__content p + table,
+.ai-summary-card__content table + p,
+.ai-summary-card__content table + table {
+    margin-top: 9px;
+}
+
+.ai-summary-card__content th,
+.ai-summary-card__content td {
+    padding: 7px 10px;
+    border: 1px solid var(--ai-summary-code-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.ai-summary-card__content th {
+    font-weight: 700;
+    color: var(--ai-summary-text);
+    background: var(--ai-summary-content-bg);
+}
+
+.ai-summary-card__content td {
+    color: var(--ai-summary-text);
+    background: transparent;
+}
+
 .ai-summary-card.is-generating {
     border-color: color-mix(in srgb, var(--ai-summary-border) 65%, var(--ai-summary-accent) 35%);
 }

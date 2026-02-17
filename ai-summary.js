@@ -52,6 +52,32 @@
         var normalized = escapeHtml(markdown).replace(/\r\n?/g, "\n");
         var codeBlocks = [];
 
+        var splitTableCells = function (line) {
+            var normalizedLine = String(line || "").trim();
+            if (!normalizedLine) {
+                return [];
+            }
+            if (normalizedLine.charAt(0) === "|") {
+                normalizedLine = normalizedLine.slice(1);
+            }
+            if (normalizedLine.charAt(normalizedLine.length - 1) === "|") {
+                normalizedLine = normalizedLine.slice(0, -1);
+            }
+            return normalizedLine.split("|").map(function (cell) {
+                return cell.trim();
+            });
+        };
+
+        var isTableDividerRow = function (cells) {
+            if (!cells || !cells.length) {
+                return false;
+            }
+            return cells.every(function (cell) {
+                var normalizedCell = String(cell || "").replace(/\s+/g, "");
+                return /^:?-{3,}:?$/.test(normalizedCell);
+            });
+        };
+
         normalized = normalized.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function (_, lang, code) {
             var codeBlockHtml = "<pre><code";
             if (lang) {
@@ -85,6 +111,51 @@
             }
 
             var lines = blockText.split("\n");
+            if (lines.length >= 2 && lines[0].indexOf("|") !== -1 && lines[1].indexOf("|") !== -1) {
+                var headerCells = splitTableCells(lines[0]);
+                var dividerCells = splitTableCells(lines[1]);
+
+                if (headerCells.length > 0
+                    && headerCells.length === dividerCells.length
+                    && isTableDividerRow(dividerCells)) {
+                    var bodyRows = [];
+
+                    for (var rowIndex = 2; rowIndex < lines.length; rowIndex += 1) {
+                        var rowText = lines[rowIndex].trim();
+                        if (!rowText) {
+                            continue;
+                        }
+
+                        var rowCells = splitTableCells(rowText);
+                        if (!rowCells.length) {
+                            continue;
+                        }
+
+                        if (rowCells.length < headerCells.length) {
+                            rowCells = rowCells.concat(new Array(headerCells.length - rowCells.length).fill(""));
+                        }
+                        if (rowCells.length > headerCells.length) {
+                            rowCells = rowCells.slice(0, headerCells.length);
+                        }
+                        bodyRows.push(rowCells);
+                    }
+
+                    var tableHead = "<thead><tr>" + headerCells.map(function (cell) {
+                        return "<th>" + renderInlineMarkdown(cell) + "</th>";
+                    }).join("") + "</tr></thead>";
+
+                    var tableBody = bodyRows.length
+                        ? "<tbody>" + bodyRows.map(function (rowCells) {
+                            return "<tr>" + rowCells.map(function (cell) {
+                                return "<td>" + renderInlineMarkdown(cell) + "</td>";
+                            }).join("") + "</tr>";
+                        }).join("") + "</tbody>"
+                        : "";
+
+                    return "<table>" + tableHead + tableBody + "</table>";
+                }
+            }
+
             var isUnorderedList = lines.length > 0 && lines.every(function (line) {
                 return /^[-*]\s+/.test(line);
             });
