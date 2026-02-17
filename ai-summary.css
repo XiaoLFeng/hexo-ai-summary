@@ -1,6 +1,9 @@
 :root {
     --ai-summary-bg: #ffffff;
     --ai-summary-bg-hover: #f7f7f8;
+    --ai-summary-card-max-height: 560px;
+    --ai-summary-card-max-height-viewport: 70vh;
+    --ai-summary-card-header-height: 58px;
     --ai-summary-border: #d0d7de;
     --ai-summary-shadow: 0 10px 24px rgba(18, 20, 23, 0.06);
     --ai-summary-text: #1f2328;
@@ -120,6 +123,8 @@ body[data-theme="dark"] {
 }
 
 .ai-summary-card {
+    max-height: min(var(--ai-summary-card-max-height-viewport), var(--ai-summary-card-max-height));
+    overflow: hidden;
     border: 1px solid var(--ai-summary-border);
     border-radius: 14px;
     background: var(--ai-summary-bg);
@@ -238,9 +243,12 @@ body[data-theme="dark"] {
 
 .ai-summary-card__content-wrap {
     position: relative;
-    max-height: 1800px;
+    max-height: calc(min(var(--ai-summary-card-max-height-viewport), var(--ai-summary-card-max-height)) - var(--ai-summary-card-header-height));
     opacity: 1;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.2s ease;
     padding: 0 16px 14px;
 }
@@ -248,6 +256,7 @@ body[data-theme="dark"] {
 .ai-summary-card.is-collapsed .ai-summary-card__content-wrap {
     max-height: 0;
     opacity: 0;
+    overflow: hidden;
     padding-top: 0;
     padding-bottom: 0;
 }
@@ -536,6 +545,12 @@ body[data-theme="dark"] {
 }
 
 @media (max-width: 600px) {
+    .ai-summary-entry {
+        --ai-summary-card-max-height: 500px;
+        --ai-summary-card-max-height-viewport: 72vh;
+        --ai-summary-card-header-height: 52px;
+    }
+
     .ai-summary-card__header {
         min-height: 50px;
         padding: 12px 13px;
